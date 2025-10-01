@@ -104,7 +104,7 @@ usage: main.py [-h] -c COURSE_URL [-b BEARER_TOKEN] [-q QUALITY] [-l LANG] [-cd 
                [--download-captions] [--download-quizzes] [--keep-vtt] [--skip-hls] [--info] [--id-as-course-name] [-sc] [--save-to-file] [--load-from-file]
                [--log-level LOG_LEVEL] [--browser {chrome,firefox,opera,edge,brave,chromium,vivaldi,safari}] [--use-h265] [--h265-crf H265_CRF] [--h265-preset H265_PRESET]
                [--use-nvenc] [--out OUT] [--continue-lecture-numbers]
-               [--chapter CHAPTER_FILTER_RAW]
+               [--chapter CHAPTER_FILTER_RAW] [--watermark]
 
 Udemy Downloader
 
@@ -148,6 +148,7 @@ options:
                         Use continuous lecture numbering instead of per-chapter
   --chapter CHAPTER_FILTER_RAW
                         Download specific chapters. Use comma separated values and ranges (e.g., '1,3-5,7,9-11')
+  -w, --watermark           Apply watermark to videos
 ```
 
 -   Passing a Bearer Token and Course ID as an argument
@@ -210,6 +211,8 @@ options:
     - `python main.py -c <Course URL> --chapter "1-3" -q 720`
 -   Download specific chapters with captions:
     - `python main.py -c <Course URL> --chapter "1,3" --download-captions`
+-   Apply watermark to videos:
+    - `python main.py -c <Course URL> --watermark`
 
 # Support
 
