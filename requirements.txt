@@ -7,7 +7,7 @@ webvtt-py
 pysrt
 m3u8
 colorama
-yt-dlp
+yt-dlp==2025.1.26
 bitstring
 unidecode
 beautifulsoup4
@@ -17,3 +17,4 @@ pathvalidate
 coloredlogs
 browser_cookie3
 demoji
+pyfiglet
