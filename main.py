@@ -23,6 +23,8 @@ from dotenv import load_dotenv
 from pathvalidate import sanitize_filename
 from requests.exceptions import ConnectionError as conn_error
 from tqdm import tqdm
+from pyfiglet import Figlet
+from colorama import Back, Fore, Style, init
 
 from constants import *
 from tls import SSLCiphers
@@ -30,6 +32,16 @@ from utils import extract_kid
 from vtt_to_srt import convert
 
 DOWNLOAD_DIR = os.path.join(os.getcwd(), "out_dir")
+WATERMARK = os.path.abspath("watermark.png")
+
+# Watermark positions
+TOP_LEFT = "overlay=10:10" # with 10 pixel padding x=10:y=10
+TOP_CENTER = "overlay=(W-w)/2:10"
+TOP_RIGHT = "overlay=W-w-10:10"
+CENTERED = "overlay=(W-w)/2:(H-h)/2"
+BOTTOM_LEFT = "overlay=10:H-h-10"
+BOTTOM_CENTER = "overlay=(W-w)/2:H-h-10"
+BOTTOM_RIGHT = "overlay=W-w-10:H-h-10"
 
 retry = 3
 downloader = None
@@ -61,6 +73,15 @@ browser = None
 cj = None
 use_continuous_lecture_numbers = False
 chapter_filter = None
+use_watermark = False
+
+
+def banner():
+    init(autoreset=True)
+    font = Figlet(font='slant')
+    print(Fore.MAGENTA + Style.BRIGHT + font.renderText('udemy-dl'))
+    print(Back.MAGENTA + Style.BRIGHT + "Modified by alphaDRM")
+    print()
 
 
 def deEmojify(inputStr: str):
@@ -99,7 +120,7 @@ def parse_chapter_filter(chapter_str: str):
 
 # this is the first function that is called, we parse the arguments, setup the logger, and ensure that required directories exist
 def pre_run():
-    global dl_assets, dl_captions, dl_quizzes, skip_lectures, caption_locale, quality, bearer_token, course_name, keep_vtt, skip_hls, concurrent_downloads, load_from_file, save_to_file, bearer_token, course_url, info, logger, keys, id_as_course_name, LOG_LEVEL, use_h265, h265_crf, h265_preset, use_nvenc, browser, is_subscription_course, DOWNLOAD_DIR, use_continuous_lecture_numbers, chapter_filter
+    global dl_assets, dl_captions, dl_quizzes, skip_lectures, caption_locale, quality, bearer_token, course_name, keep_vtt, skip_hls, concurrent_downloads, load_from_file, save_to_file, bearer_token, course_url, info, logger, keys, id_as_course_name, LOG_LEVEL, use_h265, h265_crf, h265_preset, use_nvenc, browser, is_subscription_course, DOWNLOAD_DIR, use_continuous_lecture_numbers, chapter_filter, use_watermark
 
     # make sure the logs directory exists
     if not os.path.exists(LOG_DIR_PATH):
@@ -262,6 +283,13 @@ def pre_run():
         type=str,
         help="Download specific chapters. Use comma separated values and ranges (e.g., '1,3-5,7,9-11').",
     )
+    parser.add_argument(
+        "-w", "--watermark",
+        action="store_true",
+        dest="watermark", # Nombre personalizado de la variable en args donde se guarda el valor.
+        help="Apply watermark to the video.",
+    )
+
     # parser.add_argument("-v", "--version", action="version", version="You are running version {version}".format(version=__version__))
 
     args = parser.parse_args()
@@ -332,6 +360,8 @@ def pre_run():
         DOWNLOAD_DIR = os.path.abspath(args.out)
     if args.use_continuous_lecture_numbers:
         use_continuous_lecture_numbers = args.use_continuous_lecture_numbers
+    if args.watermark:
+        use_watermark = True
 
     # setup a logger
     logger = logging.getLogger(__name__)
@@ -818,7 +848,7 @@ class Udemy:
 
             _temp = _temp2
         except Exception:
-            logger.exception(f"Error fetching MPD streams")
+            logger.exception("Error fetching MPD streams")
 
         # We don't delete the mpd file yet because we can use it to download later
         return _temp
@@ -897,7 +927,7 @@ class Udemy:
                 try:
                     resp = self.session._get(_next)
                     if not resp.ok:
-                        logger.error(f"Failed to fetch a page, will retry")
+                        logger.error("Failed to fetch a page, will retry")
                         continue
                     resp = resp.json()
                 except conn_error as error:
@@ -1242,14 +1272,14 @@ def mux_process(
 
     if os.name == "nt":
         if use_h265:
-            command = f'ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title}" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Downloaded by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
         else:
-            command = f'ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title}" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Downloaded by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
     else:
         if use_h265:
-            command = f'nice -n 7 ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title}" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'nice -n 7 ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Downloaded by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
         else:
-            command = f'nice -n 7 ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title}" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'nice -n 7 ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Downloaded by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
 
     process = subprocess.Popen(command, shell=True)
     log_subprocess_output("FFMPEG-STDOUT", process.stdout)
@@ -1306,14 +1336,14 @@ def handle_segments(url, format_id, lecture_id, video_title, output_path, chapte
         video_kid = extract_kid(video_filepath_enc)
         logger.info("KID for video file is: " + video_kid)
     except Exception:
-        logger.exception(f"Error extracting video kid")
+        logger.exception("Error extracting video kid")
         return
 
     try:
         audio_kid = extract_kid(audio_filepath_enc)
         logger.info("KID for audio file is: " + audio_kid)
     except Exception:
-        logger.exception(f"Error extracting audio kid")
+        logger.exception("Error extracting audio kid")
         return
 
     audio_key = None
@@ -1350,6 +1380,7 @@ def handle_segments(url, format_id, lecture_id, video_title, output_path, chapte
         #     logger.error("> Return code from the decrypter was non-0 (error), skipping!")
         #     return
         # logger.info("> Decryption complete")
+
         logger.info("> Merging video and audio, this might take a minute...")
         mux_process(video_filepath_enc, audio_filepath_enc, video_title, temp_output_path, audio_key, video_key)
         if ret_code != 0:
@@ -1360,6 +1391,34 @@ def handle_segments(url, format_id, lecture_id, video_title, output_path, chapte
         logger.info("> Cleaning up temporary files...")
         os.remove(video_filepath_enc)
         os.remove(audio_filepath_enc)
+      
+        time.sleep(3)
+        
+        # Watermark goes here
+        if use_watermark:
+            logger.info("> applying watermark...")
+            temp_path = output_path.replace(".mp4", "_tmp.mp4")
+            watermark_cmd = [
+                "ffmpeg",
+                "-i", output_path,
+                "-i", WATERMARK,
+                "-filter_complex", BOTTOM_LEFT,       
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-c:a", "copy",
+                "-crf", "25",
+                "-y",
+                temp_path
+            ]
+            process_wm = subprocess.Popen(watermark_cmd)
+            process_wm.wait()
+
+            if process_wm.returncode == 0:
+                os.replace(temp_path, output_path)
+                logger.info("> Watermark applied successfully.")
+            else:
+                logger.info("> Error applying watermark.")
+
     except Exception as e:
         logger.exception(f"Muxing error: {e}")
     finally:
@@ -1465,14 +1524,14 @@ def download_aria(url, file_dir, filename):
 
 
 def process_caption(caption, lecture_title, lecture_dir, tries=0):
-    filename = f"%s_%s.%s" % (sanitize_filename(lecture_title), caption.get("language"), caption.get("extension"))
-    filename_no_ext = f"%s_%s" % (sanitize_filename(lecture_title), caption.get("language"))
+    filename = "%s_%s.%s" % (sanitize_filename(lecture_title), caption.get("language"), caption.get("extension"))
+    filename_no_ext = "%s_%s" % (sanitize_filename(lecture_title), caption.get("language"))
     filepath = os.path.join(lecture_dir, filename)
 
     if os.path.isfile(filepath):
         logger.info("    > Caption '%s' already downloaded." % filename)
     else:
-        logger.info(f"    >  Downloading caption: '%s'" % filename)
+        logger.info("    >  Downloading caption: '%s'" % filename)
         try:
             ret_code = download_aria(caption.get("download_url"), lecture_dir, filename)
             logger.debug(f"      > Download return code: {ret_code}")
@@ -1491,7 +1550,7 @@ def process_caption(caption, lecture_title, lecture_dir, tries=0):
                 if not keep_vtt:
                     os.remove(filepath)
             except Exception:
-                logger.exception(f"    > Error converting caption")
+                logger.exception("    > Error converting caption")
 
 
 def process_lecture(lecture, lecture_path, chapter_dir):
@@ -1555,6 +1614,35 @@ def process_lecture(lecture, lecture_path, chapter_dir):
                         if ret_code == 0:
                             tmp_file_path = lecture_path + ".tmp"
                             logger.info("      > HLS Download success")
+
+                            # Watermark goes here
+                            if use_watermark:
+                                logger.info("> applying watermark...")
+                                temp_path = lecture_path.replace(".mp4", "_tmp.mp4")
+                                cmd_watermark = [
+                                    "ffmpeg",
+                                    "-i", lecture_path,
+                                    "-i", WATERMARK,
+                                    "-filter_complex", BOTTOM_LEFT,
+                                    "-c:v", "libx264",
+                                    "-preset", "ultrafast",
+                                    "-c:a", "copy",
+                                    "-crf", "25",
+                                    "-y",
+                                    "-metadata", f"title={lecture_title} - Downloaded by alphaDRM",
+                                    "-metadata",'comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)"',
+                                    temp_path
+                                ]
+                                process_w = subprocess.Popen(cmd_watermark)
+                                process_w.wait()
+
+                                if process_w.returncode == 0:
+                                    # Reemplaza el archivo original por el nuevo con marca de agua
+                                    os.replace(temp_path, lecture_path)
+                                    logger.info("> Watermark applied successfully.")
+                                else:
+                                    logger.info("> Error applying watermark.")
+
                             if use_h265:
                                 codec = "hevc_nvenc" if use_nvenc else "libx265"
                                 transcode = "-hwaccel cuda -hwaccel_output_format cuda".split(" ") if use_nvenc else []
@@ -1570,8 +1658,8 @@ def process_lecture(lecture, lecture_path, chapter_dir):
                                     "copy",
                                     "-f",
                                     "mp4",
-                                    "-metadata",
-                                    'comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)"',
+                                    "-metadata", f"title={lecture_title} - Downloaded by alphaDRM",
+                                    "-metadata",'comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)"',
                                     tmp_file_path,
                                 ]
                                 process = subprocess.Popen(cmd)
@@ -1584,11 +1672,12 @@ def process_lecture(lecture, lecture_path, chapter_dir):
                                     logger.info("      > Encoding complete")
                                 else:
                                     logger.error("      > Encoding returned non-zero return code")
+
                     else:
                         ret_code = download_aria(url, chapter_dir, lecture_title + ".mp4")
                         logger.debug(f"      > Download return code: {ret_code}")
                 except Exception:
-                    logger.exception(f">        Error downloading lecture")
+                    logger.exception(">        Error downloading lecture")
             else:
                 logger.info(f"      > Lecture '{lecture_title}' is already downloaded, skipping...")
         else:
@@ -2075,6 +2164,7 @@ def main():
 
 
 if __name__ == "__main__":
+    banner()
     # pre run parses arguments, sets up logging, and creates directories
     pre_run()
     # run main program
