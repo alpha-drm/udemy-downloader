@@ -148,7 +148,7 @@ options:
                         Use continuous lecture numbering instead of per-chapter
   --chapter CHAPTER_FILTER_RAW
                         Download specific chapters. Use comma separated values and ranges (e.g., '1,3-5,7,9-11')
-  -w, --watermark           Apply watermark to videos
+  -w, --watermark       Apply watermark to videos (default image: watermark.png)
 ```
 
 -   Passing a Bearer Token and Course ID as an argument
