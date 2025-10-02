@@ -35,13 +35,13 @@ DOWNLOAD_DIR = os.path.join(os.getcwd(), "out_dir")
 WATERMARK = os.path.abspath("watermark.png")
 
 # Watermark positions
-TOP_LEFT = "overlay=10:10" # with 10 pixel padding x=10:y=10
-TOP_CENTER = "overlay=(W-w)/2:10"
-TOP_RIGHT = "overlay=W-w-10:10"
+TOP_LEFT = "overlay=6:6" # with 10 pixel padding x=10:y=10
+TOP_CENTER = "overlay=(W-w)/2:6"
+TOP_RIGHT = "overlay=W-w-6:6"
 CENTERED = "overlay=(W-w)/2:(H-h)/2"
-BOTTOM_LEFT = "overlay=10:H-h-10"
-BOTTOM_CENTER = "overlay=(W-w)/2:H-h-10"
-BOTTOM_RIGHT = "overlay=W-w-10:H-h-10"
+BOTTOM_LEFT = "overlay=6:H-h-6"
+BOTTOM_CENTER = "overlay=(W-w)/2:H-h-6"
+BOTTOM_RIGHT = "overlay=W-w-6:H-h-6"
 
 retry = 3
 downloader = None
@@ -1406,7 +1406,7 @@ def handle_segments(url, format_id, lecture_id, video_title, output_path, chapte
                 "-c:v", "libx264",
                 "-preset", "ultrafast",
                 "-c:a", "copy",
-                "-crf", "25",
+                "-crf", "26",
                 "-y",
                 temp_path
             ]
@@ -1627,7 +1627,7 @@ def process_lecture(lecture, lecture_path, chapter_dir):
                                     "-c:v", "libx264",
                                     "-preset", "ultrafast",
                                     "-c:a", "copy",
-                                    "-crf", "25",
+                                    "-crf", "26",
                                     "-y",
                                     "-metadata", f"title={lecture_title} - Downloaded by alphaDRM",
                                     "-metadata",'comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)"',
