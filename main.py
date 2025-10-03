@@ -32,16 +32,33 @@ from utils import extract_kid
 from vtt_to_srt import convert
 
 DOWNLOAD_DIR = os.path.join(os.getcwd(), "out_dir")
-WATERMARK = os.path.abspath("watermark.png")
 
 # Watermark positions
-TOP_LEFT = "overlay=6:6" # with 10 pixel padding x=10:y=10
-TOP_CENTER = "overlay=(W-w)/2:6"
-TOP_RIGHT = "overlay=W-w-6:6"
-CENTERED = "overlay=(W-w)/2:(H-h)/2"
-BOTTOM_LEFT = "overlay=6:H-h-6"
-BOTTOM_CENTER = "overlay=(W-w)/2:H-h-6"
-BOTTOM_RIGHT = "overlay=W-w-6:H-h-6"
+TOP_LEFT = "5:5" # with 10 pixel padding x=10:y=10
+TOP_CENTER = "(W-w)/2:5"
+TOP_RIGHT = "W-w-5:5"
+CENTERED = "(W-w)/2:(H-h)/2"
+BOTTOM_LEFT = "5:H-h-5"
+BOTTOM_CENTER = "(W-w)/2:H-h-5"
+BOTTOM_RIGHT = "W-w-5:H-h-5"
+
+overlay_filter = (
+    f"[0:v][1:v] overlay={BOTTOM_LEFT} [tmp];"
+    f"[tmp][2:v] overlay={TOP_RIGHT}"
+)
+
+# FFmpeg config
+CODEC = "libx264"
+PRESET = "ultrafast" # predefined set of encoding options
+CRF = "26" # Constant Frame Rate
+
+# Logos
+WATERMARK_BOTTOM = os.path.abspath("watermark_bottom.png")
+WATERMARK_TOP = os.path.abspath("watermark_top.png")
+
+# Text watermark
+ADD_TEXT_TO_FILE = " @RecursosCompartidos" # Dejar un espacio al principio
+FILE_TEMPLATE = "@RecursosCompartidos.txt" # Archivo de texto que estara en cada carpeta
 
 retry = 3
 downloader = None
@@ -82,6 +99,51 @@ def banner():
     print(Fore.MAGENTA + Style.BRIGHT + font.renderText('udemy-dl'))
     print(Back.MAGENTA + Style.BRIGHT + "Modified by alphaDRM")
     print()
+
+
+def apply_watermark(path, title):
+    logger.info("> applying watermark...")
+    temp_path = path.replace(".mp4", "_tmp.mp4")
+    cmd_watermark = [
+        "ffmpeg",
+        "-i", path,
+        "-i", WATERMARK_BOTTOM,
+        "-i", WATERMARK_TOP,
+        "-filter_complex", overlay_filter,
+        "-c:v", CODEC,
+        "-preset", PRESET,
+        "-c:a", "copy",
+        "-crf", CRF,
+        "-y",
+        "-metadata", f"title={title} - Shared by alphaDRM",
+        "-metadata",'comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)"',
+        "-metadata", "genre=Course",
+        temp_path
+    ]
+    process_w = subprocess.Popen(cmd_watermark)
+    process_w.wait()
+
+    if process_w.returncode == 0:
+        # Reemplaza el archivo original por el nuevo con marca de agua
+        os.replace(temp_path, path)
+        # Obtener el nombre del archivo y su extensión para renombrar
+        name, ext = os.path.splitext(path)
+        # Renombrar el archivo con el nombre asignado
+        new_filename = f"{name}{ADD_TEXT_TO_FILE}{ext}"
+        os.replace(path, new_filename)
+
+        with open("./templates/watermark_template.txt", encoding="utf8") as f:
+            content = f.read()
+            base = os.path.dirname(path)
+            path_file = os.path.join(base, FILE_TEMPLATE)
+
+            # Verificar si el archivo ya existe
+            if not os.path.exists(path_file):
+                with open(path_file, encoding="utf8", mode="w") as f:
+                    f.write(content)
+        logger.info("> Watermark applied successfully.")
+    else:
+        logger.info("> Error applying watermark.")
 
 
 def deEmojify(inputStr: str):
@@ -1272,14 +1334,14 @@ def mux_process(
 
     if os.name == "nt":
         if use_h265:
-            command = f'ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Downloaded by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
         else:
-            command = f'ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Downloaded by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" -metadata genre="Course" "{output_path}"'
     else:
         if use_h265:
-            command = f'nice -n 7 ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Downloaded by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'nice -n 7 ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
         else:
-            command = f'nice -n 7 ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Downloaded by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'nice -n 7 ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
 
     process = subprocess.Popen(command, shell=True)
     log_subprocess_output("FFMPEG-STDOUT", process.stdout)
@@ -1396,28 +1458,7 @@ def handle_segments(url, format_id, lecture_id, video_title, output_path, chapte
         
         # Watermark goes here
         if use_watermark:
-            logger.info("> applying watermark...")
-            temp_path = output_path.replace(".mp4", "_tmp.mp4")
-            watermark_cmd = [
-                "ffmpeg",
-                "-i", output_path,
-                "-i", WATERMARK,
-                "-filter_complex", BOTTOM_LEFT,       
-                "-c:v", "libx264",
-                "-preset", "ultrafast",
-                "-c:a", "copy",
-                "-crf", "26",
-                "-y",
-                temp_path
-            ]
-            process_wm = subprocess.Popen(watermark_cmd)
-            process_wm.wait()
-
-            if process_wm.returncode == 0:
-                os.replace(temp_path, output_path)
-                logger.info("> Watermark applied successfully.")
-            else:
-                logger.info("> Error applying watermark.")
+            apply_watermark(output_path, video_title)
 
     except Exception as e:
         logger.exception(f"Muxing error: {e}")
@@ -1617,31 +1658,7 @@ def process_lecture(lecture, lecture_path, chapter_dir):
 
                             # Watermark goes here
                             if use_watermark:
-                                logger.info("> applying watermark...")
-                                temp_path = lecture_path.replace(".mp4", "_tmp.mp4")
-                                cmd_watermark = [
-                                    "ffmpeg",
-                                    "-i", lecture_path,
-                                    "-i", WATERMARK,
-                                    "-filter_complex", BOTTOM_LEFT,
-                                    "-c:v", "libx264",
-                                    "-preset", "ultrafast",
-                                    "-c:a", "copy",
-                                    "-crf", "26",
-                                    "-y",
-                                    "-metadata", f"title={lecture_title} - Downloaded by alphaDRM",
-                                    "-metadata",'comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)"',
-                                    temp_path
-                                ]
-                                process_w = subprocess.Popen(cmd_watermark)
-                                process_w.wait()
-
-                                if process_w.returncode == 0:
-                                    # Reemplaza el archivo original por el nuevo con marca de agua
-                                    os.replace(temp_path, lecture_path)
-                                    logger.info("> Watermark applied successfully.")
-                                else:
-                                    logger.info("> Error applying watermark.")
+                                apply_watermark(lecture_path, lecture_title)
 
                             if use_h265:
                                 codec = "hevc_nvenc" if use_nvenc else "libx265"
@@ -1658,8 +1675,9 @@ def process_lecture(lecture, lecture_path, chapter_dir):
                                     "copy",
                                     "-f",
                                     "mp4",
-                                    "-metadata", f"title={lecture_title} - Downloaded by alphaDRM",
+                                    "-metadata", f"title={lecture_title} - Shared by alphaDRM",
                                     "-metadata",'comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)"',
+                                    "-metadata", "genre=Course",
                                     tmp_file_path,
                                 ]
                                 process = subprocess.Popen(cmd)
@@ -1676,6 +1694,11 @@ def process_lecture(lecture, lecture_path, chapter_dir):
                     else:
                         ret_code = download_aria(url, chapter_dir, lecture_title + ".mp4")
                         logger.debug(f"      > Download return code: {ret_code}")
+                        
+                        # Watermark goes here
+                        if use_watermark:
+                            apply_watermark(lecture_path, lecture_title)
+
                 except Exception:
                     logger.exception(">        Error downloading lecture")
             else:
