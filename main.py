@@ -18,13 +18,13 @@ import m3u8
 import requests
 import yt_dlp
 from bs4 import BeautifulSoup
+from colorama import Back, Fore, Style, init
 from coloredlogs import ColoredFormatter
 from dotenv import load_dotenv
 from pathvalidate import sanitize_filename
+from pyfiglet import Figlet
 from requests.exceptions import ConnectionError as conn_error
 from tqdm import tqdm
-from pyfiglet import Figlet
-from colorama import Back, Fore, Style, init
 
 from constants import *
 from tls import SSLCiphers
@@ -130,17 +130,24 @@ def apply_watermark(path, title):
         name, ext = os.path.splitext(path)
         # Renombrar el archivo con el nombre asignado
         new_filename = f"{name}{ADD_TEXT_TO_FILE}{ext}"
-        os.replace(path, new_filename)
+        os.rename(path, new_filename)
 
-        with open("./templates/watermark_template.txt", encoding="utf8") as f:
-            content = f.read()
-            base = os.path.dirname(path)
-            path_file = os.path.join(base, FILE_TEMPLATE)
+        time.sleep(3)
 
-            # Verificar si el archivo ya existe
-            if not os.path.exists(path_file):
-                with open(path_file, encoding="utf8", mode="w") as f:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        template_path = os.path.join(script_dir, "templates", "watermark_template.txt")
+
+        base = os.path.dirname(path)
+        path_file = os.path.join(base, FILE_TEMPLATE)
+
+        # Verificar si el archivo ya existe
+        if not os.path.exists(path_file):
+            with open(template_path, "r", encoding="utf8") as f:
+                content = f.read()
+
+            with open(path_file, encoding="utf8", mode="w") as f:
                     f.write(content)
+
         logger.info("> Watermark applied successfully.")
     else:
         logger.info("> Error applying watermark.")
@@ -1453,9 +1460,9 @@ def handle_segments(url, format_id, lecture_id, video_title, output_path, chapte
         logger.info("> Cleaning up temporary files...")
         os.remove(video_filepath_enc)
         os.remove(audio_filepath_enc)
-      
+
         time.sleep(3)
-        
+
         # Watermark goes here
         if use_watermark:
             apply_watermark(output_path, video_title)
@@ -1694,7 +1701,7 @@ def process_lecture(lecture, lecture_path, chapter_dir):
                     else:
                         ret_code = download_aria(url, chapter_dir, lecture_title + ".mp4")
                         logger.debug(f"      > Download return code: {ret_code}")
-                        
+
                         # Watermark goes here
                         if use_watermark:
                             apply_watermark(lecture_path, lecture_title)
