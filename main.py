@@ -57,7 +57,7 @@ WATERMARK_BOTTOM = os.path.abspath("watermark_bottom.png")
 WATERMARK_TOP = os.path.abspath("watermark_top.png")
 
 # Text watermark
-ADD_TEXT_TO_FILE = " @RecursosCompartidos" # Dejar un espacio al principio
+# ADD_TEXT_TO_FILE = " @RecursosCompartidos" # Dejar un espacio al principio
 FILE_TEMPLATE = "@RecursosCompartidos.txt" # Archivo de texto que estara en cada carpeta
 
 retry = 3
@@ -101,6 +101,21 @@ def banner():
     print()
 
 
+def file_template(path):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(script_dir, "templates", "watermark_template.txt")
+
+    base = os.path.dirname(path)
+    path_file = os.path.join(base, FILE_TEMPLATE)
+
+    if not os.path.exists(path_file):
+        with open(template_path, "r", encoding="utf8") as f:
+            content = f.read()
+
+        with open(path_file, encoding="utf8", mode="w") as f:
+            f.write(content)
+
+
 def apply_watermark(path, title):
     logger.info("> applying watermark...")
     temp_path = path.replace(".mp4", "_tmp.mp4")
@@ -127,26 +142,12 @@ def apply_watermark(path, title):
         # Reemplaza el archivo original por el nuevo con marca de agua
         os.replace(temp_path, path)
         # Obtener el nombre del archivo y su extensión para renombrar
-        name, ext = os.path.splitext(path)
+        # name, ext = os.path.splitext(path)
         # Renombrar el archivo con el nombre asignado
-        new_filename = f"{name}{ADD_TEXT_TO_FILE}{ext}"
-        os.rename(path, new_filename)
+        # new_filename = f"{name}{ADD_TEXT_TO_FILE}{ext}"
+        # os.rename(path, new_filename)
 
-        time.sleep(3)
-
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        template_path = os.path.join(script_dir, "templates", "watermark_template.txt")
-
-        base = os.path.dirname(path)
-        path_file = os.path.join(base, FILE_TEMPLATE)
-
-        # Verificar si el archivo ya existe
-        if not os.path.exists(path_file):
-            with open(template_path, "r", encoding="utf8") as f:
-                content = f.read()
-
-            with open(path_file, encoding="utf8", mode="w") as f:
-                    f.write(content)
+        file_template(path)
 
         logger.info("> Watermark applied successfully.")
     else:
