@@ -34,31 +34,26 @@ from vtt_to_srt import convert
 DOWNLOAD_DIR = os.path.join(os.getcwd(), "out_dir")
 
 # Watermark positions
-TOP_LEFT = "5:5" # with 10 pixel padding x=10:y=10
-TOP_CENTER = "(W-w)/2:5"
-TOP_RIGHT = "W-w-5:5"
-CENTERED = "(W-w)/2:(H-h)/2"
-BOTTOM_LEFT = "5:H-h-5"
-BOTTOM_CENTER = "(W-w)/2:H-h-5"
-BOTTOM_RIGHT = "W-w-5:H-h-5"
-
-overlay_filter = (
-    f"[0:v][1:v] overlay={BOTTOM_LEFT} [tmp];"
-    f"[tmp][2:v] overlay={TOP_RIGHT}"
-)
+TOP_LEFT = "overlay=5:5" # with 10 pixel padding x=10:y=10
+TOP_CENTER = "overlay=(W-w)/2:5"
+TOP_RIGHT = "overlay=W-w-5:5"
+CENTERED = "overlay=(W-w)/2:(H-h)/2"
+BOTTOM_LEFT = "overlay=5:H-h-5"
+BOTTOM_CENTER = "overlay=(W-w)/2:H-h-5"
+BOTTOM_RIGHT = "overlay=W-w-5:H-h-5"
 
 # FFmpeg config
 CODEC = "libx264"
 PRESET = "ultrafast" # predefined set of encoding options
 CRF = "26" # Constant Frame Rate
 
-# Logos
-WATERMARK_BOTTOM = os.path.abspath("watermark_bottom.png")
-WATERMARK_TOP = os.path.abspath("watermark_top.png")
+# Logo
+WATERMARK_BOTTOM = os.path.abspath("watermark.png")
 
 # Text watermark
-# ADD_TEXT_TO_FILE = " @RecursosCompartidos" # Dejar un espacio al principio
-FILE_TEMPLATE = "@RecursosCompartidos.txt" # Archivo de texto que estara en cada carpeta
+# ADD_TEXT_TO_FILE = " @your_text_in_file" # (Opcional) Dejar un espacio al principio
+FILE_TEMPLATE = "@Your_file_name.txt" # Archivo de texto que estara en cada carpeta
+DOWNLOADED = "Your_user_name"
 
 retry = 3
 downloader = None
@@ -116,21 +111,42 @@ def file_template(path):
             f.write(content)
 
 
+def get_video_bitrate(filepath):
+    result = subprocess.run([
+        "ffprobe", "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=bit_rate",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        filepath
+    ], capture_output=True, text=True)
+
+    try:
+        bitrate = int(result.stdout.strip())
+        return bitrate
+    except:
+        return None
+
+
 def apply_watermark(path, title):
     logger.info("> applying watermark...")
     temp_path = path.replace(".mp4", "_tmp.mp4")
+
+    bitrate = get_video_bitrate(path)
+
     cmd_watermark = [
         "ffmpeg",
         "-i", path,
         "-i", WATERMARK_BOTTOM,
-        "-i", WATERMARK_TOP,
-        "-filter_complex", overlay_filter,
+        "-filter_complex", BOTTOM_LEFT,
         "-c:v", CODEC,
         "-preset", PRESET,
         "-c:a", "copy",
+        "-b:v", f"{bitrate}",
+        "-maxrate", f"{bitrate}",
+        "-bufsize", f"{bitrate*2}",
         "-crf", CRF,
         "-y",
-        "-metadata", f"title={title} - Shared by alphaDRM",
+        "-metadata", f"title={title} - Shared by {DOWNLOADED}",
         "-metadata",'comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)"',
         "-metadata", "genre=Course",
         temp_path
@@ -452,7 +468,7 @@ def pre_run():
     file_handler.setFormatter(file_formatter)
 
     # construct the logger
-    logger = logging.getLogger("udemy-downloader")
+    logger = logging.getLogger("udemy-dl")
     logger.setLevel(LOG_LEVEL)
     logger.addHandler(stream)
     logger.addHandler(file_handler)
@@ -1342,14 +1358,14 @@ def mux_process(
 
     if os.name == "nt":
         if use_h265:
-            command = f'ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by {DOWNLOADED}" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
         else:
-            command = f'ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" -metadata genre="Course" "{output_path}"'
+            command = f'ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by {DOWNLOADED}" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" -metadata genre="Course" "{output_path}"'
     else:
         if use_h265:
-            command = f'nice -n 7 ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'nice -n 7 ffmpeg {transcode} -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c:v {codec} -vtag hvc1 -crf {h265_crf} -preset {h265_preset} -c:a copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by {DOWNLOADED}" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
         else:
-            command = f'nice -n 7 ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by alphaDRM" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
+            command = f'nice -n 7 ffmpeg -y {video_decryption_arg} -i "{video_filepath}" {audio_decryption_arg} -i "{audio_filepath}" -c copy -fflags +bitexact -shortest -map_metadata -1 -metadata title="{video_title} - Shared by {DOWNLOADED}" -metadata comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)" "{output_path}"'
 
     process = subprocess.Popen(command, shell=True)
     log_subprocess_output("FFMPEG-STDOUT", process.stdout)
@@ -1683,7 +1699,7 @@ def process_lecture(lecture, lecture_path, chapter_dir):
                                     "copy",
                                     "-f",
                                     "mp4",
-                                    "-metadata", f"title={lecture_title} - Shared by alphaDRM",
+                                    "-metadata", f"title={lecture_title} - Shared by {DOWNLOADED}",
                                     "-metadata",'comment="Downloaded with Udemy-Downloader by Puyodead1 (https://github.com/Puyodead1/udemy-downloader)"',
                                     "-metadata", "genre=Course",
                                     tmp_file_path,
