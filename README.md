@@ -39,6 +39,7 @@ The following are a list of required third-party tools, you will need to ensure 
 -   [Python 3](https://python.org/)
 -   [ffmpeg](https://www.ffmpeg.org/) - This tool is also available in Linux package repositories.
     -   NOTE: It is recommended to use a custom build from the yt-dlp team that contains various patches for issues when used alongside yt-dlp, however it is not required. Latest builds can be found [here](https://github.com/yt-dlp/FFmpeg-Builds/releases/tag/latest)
+-   [ffprobe](https://www.ffmpeg.org/) - It is included in the ffmpeg package
 -   [aria2/aria2c](https://github.com/aria2/aria2/) - This tool is also available in Linux package repositories
 -   [shaka-packager](https://github.com/shaka-project/shaka-packager/releases/latest)
 -   [yt-dlp](https://github.com/yt-dlp/yt-dlp/) - This tool is also available in Linux package repositories, but can also be installed using pip if desired (`pip install yt-dlp`)
