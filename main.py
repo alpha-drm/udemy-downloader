@@ -11,6 +11,7 @@ import time
 from http.cookiejar import MozillaCookieJar
 from pathlib import Path
 from typing import IO, Union
+from urllib.parse import urlparse
 
 import browser_cookie3
 import demoji
@@ -867,7 +868,7 @@ class Udemy:
 
     def _extract_mpd(self, url):
         """extracts mpd streams"""
-        asset_id_re = re.compile(r"assets/(?P<id>\d+)/")
+
         _temp = {}
 
         # get temp folder
@@ -876,11 +877,12 @@ class Udemy:
         # ensure the folder exists
         temp_path.mkdir(parents=True, exist_ok=True)
 
-        # # extract the asset id from the url
-        asset_id = asset_id_re.search(url).group("id")
+        # Extract manifest identifier from URL
+        parsed_url = urlparse(url)
+        manifest_id = Path(parsed_url.path).parent.name
 
         # download the mpd and save it to the temp file
-        mpd_path = Path(temp_path, f"index_{asset_id}.mpd")
+        mpd_path = Path(temp_path, f"index_{manifest_id}.mpd")
 
         try:
             with open(mpd_path, "wb") as f:
@@ -918,7 +920,7 @@ class Udemy:
                         "width": str(width),
                         "format_id": f"{video_format_id},{audio_format_id}",
                         "extension": extension,
-                        "download_url": mpd_path.as_uri(),
+                        "download_url": url,
                         "tbr": round(tbr),
                     }
                 )
@@ -1282,7 +1284,7 @@ class Session(object):
 
     def _get(self, url, params=None):
         for i in range(10):
-            session = self._session.get(url, headers=self._headers, cookies=cj, params=params)
+            session = self._session.get(url, cookies=cj, params=params)
             if session.ok or session.status_code in [502, 503]:
                 return session
             if not session.ok:
